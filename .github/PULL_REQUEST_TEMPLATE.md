@@ -4,16 +4,25 @@
 ## Ответ №1
 Перезапуск всех модулей связан со значение с высоким приоритетом и политикой перезапуска со значением всегда.
 Priority:                 2000000000
-Priority Class Name:      system-cluster-critical                                                                                                                   
-Restart Policy:           Always                      
+Priority Class Name:      system-cluster-critical                         
+Restart Policy:           Always      
+
+upd.
+Системные компоненты (кроме core-dns) - потому что они запущены как static pods 
+Coredns - перезапускается потому, что управляется контроллеров deployment
+
+
 ## Задание №2
-
+Выясните причину, по которой pod frontend находится в статусе Error
 ## Ответ №2
+kubectl logs frontend
+panic: environment variable "PRODUCT_CATALOG_SERVICE_ADDR" not set
 
+обязательные переменные для запуска не найдена.
 # Выполнено ДЗ №
 
  - [*] Основное ДЗ
- - [ ] Задание со *
+ - [*] Задание со *
 
 ## В процессе сделано:
  - Сборка образа по указанным требования образа по указанным требования https://hub.docker.com/repository/docker/olegim89/otus_intro
