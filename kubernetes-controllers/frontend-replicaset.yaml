@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: olegim89/hipster-frontend:v0.0.2 
+        image: olegim89/hipster-frontend:v.0.0.2 
         env:
           - name: PRODUCT_CATALOG_SERVICE_ADDR
             value: "localhost:2000"
