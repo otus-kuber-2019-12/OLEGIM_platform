@@ -63,7 +63,6 @@
  ```bash
  curl localhost:9100/metrics
  ```
-
 ## PR checklist:
  - [x] Выставлен label с номером домашнего задания
 
