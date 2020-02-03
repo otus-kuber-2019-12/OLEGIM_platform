@@ -29,7 +29,11 @@
 
 kubectl get pods -n kube-system --as system:serviceaccount:default:bob
 kubectl get pods -n kube-system --as system:serviceaccount:default:dave
- 
+
+Необходимо проверить все созданные привязки ролей:
+ ```bash
+kubectl get clusterrolebinding bob-admin -o yaml
+ ```
 ## PR checklist:
  - [x] Выставлен label с номером домашнего задания
 
