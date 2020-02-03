@@ -19,16 +19,16 @@ spec:
         image: olegim89/hipster-frontend:v.0.0.2
         env:
           - name: PRODUCT_CATALOG_SERVICE_ADDR
-            value: "localhost:2000"
+            value: "productcatalogservice:3550"
           - name: CURRENCY_SERVICE_ADDR
-            value: "localhost:2001"
+            value: "currencyservice:7000"
           - name: CART_SERVICE_ADDR
-            value: "localhost:2002"
+            value: "cartservice:7070"
           - name: RECOMMENDATION_SERVICE_ADDR
-            value: "localhost:2003"
-          - name: CHECKOUT_SERVICE_ADDR
-            value: "localhost:2004"
+            value: "recommendationservice:8080"
           - name: SHIPPING_SERVICE_ADDR
-            value: "localhost:2005"
+            value: "shippingservice:50051"
+          - name: CHECKOUT_SERVICE_ADDR
+            value: "checkoutservice:5050"
           - name: AD_SERVICE_ADDR
-            value: "localhost:2006"
+            value: "adservice:9555"
