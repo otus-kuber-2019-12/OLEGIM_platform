@@ -17,8 +17,6 @@
  - Обновлен манифест сервиса paymentservice
  - Произведен откат deployment сервиса paymentservice
  - Подготовлен манифест для blue-green и Reverse Rolling Update deployment сервиса paymentservice
- - Создан манифест deployment сервиса frontend с настройкой readinessProbe
- - Заменено в описании пробы URL /_healthz на /_health
  - Создан манифест для DeamonSet сервиса node-exporter
 
 ## Как запустить проект:
