@@ -13,15 +13,18 @@ spec:
             - name: app
               mountPath: /app
     containers:
-         - name: web
-           image: olegim89/otus_intro:latest
-           readinessProbe:
-              httpGet:
-                path: /index.html
-                port: 80
-           volumeMounts:
-           - name: app
-             mountPath: /app
+      - name: web
+        image: olegim89/otus_intro:latest
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: 80
+        livenessProbe:
+          tcpSocket: 
+            port: 8000
+        volumeMounts:
+          - name: app
+            mountPath: /app
     volumes:
          - name: app
            emptyDir: {}
