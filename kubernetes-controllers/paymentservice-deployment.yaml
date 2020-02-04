@@ -5,7 +5,7 @@ metadata:
   labels:
     app: paymentservice
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: paymentservice
@@ -15,7 +15,7 @@ spec:
         app: paymentservice
     spec:
       containers:
-      - name: server
+        - name: server
         image: olegim89/hipster-paymentservice:v0.0.2
         env:
             - name: PRODUCT_CATALOG_SERVICE_ADDR
