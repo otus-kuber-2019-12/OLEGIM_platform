@@ -21,6 +21,45 @@ maxSurge и maxUnavailable (оба 0, оба 100%, 0 и 100%)
 10.96.239.166
 Полностью очистим все правила iptables
 
+
+включил ipvs
+TCP  10.96.239.166:80 rr
+  -> 172.17.0.4:8000              Masq    1      0          0         
+  -> 172.17.0.5:8000              Masq    1      0          0         
+  -> 172.17.0.6:8000  
+
+ping -c1 10.96.239.166
+PING 10.96.239.166 (10.96.239.166): 56 data bytes
+64 bytes from 10.96.239.166: seq=0 ttl=64 time=0.168 ms
+
+--- 10.96.239.166 ping statistics ---
+1 packets transmitted, 1 packets received, 0% packet loss
+round-trip min/avg/max = 0.168/0.168/0.168 ms
+
+Name: KUBE-CLUSTER-IP
+Type: hash:ip,port
+Revision: 5
+Header: family inet hashsize 1024 maxelem 65536
+Size in memory: 536
+References: 2
+Number of entries: 7
+Members:
+10.96.0.1,tcp:443
+10.96.0.10,tcp:9153
+10.96.0.10,tcp:53
+10.96.239.166,tcp:80
+10.96.0.10,udp:53
+10.96.171.50,tcp:80
+10.96.196.129,tcp:8000
+
+Name:                     web-svc-lb
+Type:                     LoadBalancer
+IP:                       10.96.253.44
+http://10.96.253.44/index.html
+
+
+адрес виртуалки
+sudo route add 172.17.255.0/24 192.168.122.243
 ## Как запустить проект:
 livenessprobe
 `kubectl apply -f kubernetes-intro/web-pod.yaml --force`
