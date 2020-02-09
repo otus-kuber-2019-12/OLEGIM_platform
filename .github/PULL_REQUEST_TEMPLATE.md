@@ -44,7 +44,7 @@ cGFzc3dvcmQxMjM0NTYK
 
 ## Как запустить проект:
 ```
-  kubectl apply -f .
+  kubectl apply -f kubernetes-volumes/ 
 ```
 ## Как проверить работоспособность:
  docker run minio/mc ls
