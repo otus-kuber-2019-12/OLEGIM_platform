@@ -21,12 +21,12 @@ spec:
           valueFrom:
               secretKeyRef:
                 name: secretword
-                key: secret_admin
+                key: username
         - name: MINIO_SECRET_KEY
           valueFrom:
               secretKeyRef:
                 name: secretword
-                key: password123456
+                key: password
         image: minio/minio:RELEASE.2019-07-10T00-34-56Z
         args:
         - server

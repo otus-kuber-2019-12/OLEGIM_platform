@@ -51,4 +51,13 @@ cGFzc3dvcmQxMjM0NTYK
 ## PR checklist:
  - [x] Выставлен label с номером домашнего задания
 
- 
+ kubectl
+kubectl
+kubectl
+kubectl
+kubectl
+get statefulsets
+get pods
+get pvc
+get pv
+describe <resource> <resource_name>
