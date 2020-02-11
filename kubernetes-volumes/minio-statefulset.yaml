@@ -20,13 +20,13 @@ spec:
         - name: MINIO_ACCESS_KEY
           valueFrom:
               secretKeyRef:
-                name: secretword
-                key: username
+                name: secret
+                key: secret_name
         - name: MINIO_SECRET_KEY
           valueFrom:
               secretKeyRef:
-                name: secretword
-                key: password
+                name: secret
+                key: secret_pass
         image: minio/minio:RELEASE.2019-07-10T00-34-56Z
         args:
         - server
