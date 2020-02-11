@@ -47,6 +47,12 @@ cGFzc3dvcmQxMjM0NTYK
   kubectl apply -f kubernetes-volumes/ 
 ```
 ## Как проверить работоспособность:
+ ```
  docker run minio/mc ls
+
+ kubectl port-forward minio-0 9000:9000
+
+ http://localhost:9000/minio/login
+ ``` 
 ## PR checklist:
  - [x] Выставлен label с номером домашнего задания
