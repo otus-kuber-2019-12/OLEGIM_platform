@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: server
-          image: olegim89/hipster-paymentservice:v0.0.2
+          image: olegim89/hipster-paymentservice:v0.0.1
           env:
             - name: PRODUCT_CATALOG_SERVICE_ADDR
               value: "productcatalogservice:3550"
