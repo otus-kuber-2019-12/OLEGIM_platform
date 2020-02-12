@@ -21,3 +21,4 @@
 Аналог blue-green:
 Reverse Rolling Update
 При удалении подов, автоматически были запущены с образов 0.0.2
+Создан манифест для DeamonSet сервиса node-exporter

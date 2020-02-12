@@ -5,10 +5,10 @@ metadata:
   labels:
     app: frontend
 spec:
+  replicas: 3
   selector:
     matchLabels:
       app: frontend
-  replicas: 3
   template:
     metadata:
       labels:
@@ -16,19 +16,19 @@ spec:
     spec:
       containers:
       - name: server
-        image: olegim89/hipster-frontend:v0.0.2 
+        image: olegim89/hipster-frontend:v.0.0.2
         env:
-          - name: PRODUCT_CATALOG_SERVICE_ADDR
-            value: "localhost:2000"
-          - name: CURRENCY_SERVICE_ADDR
-            value: "localhost:2001"
-          - name: CART_SERVICE_ADDR
-            value: "localhost:2002"
-          - name: RECOMMENDATION_SERVICE_ADDR
-            value: "localhost:2003"
-          - name: CHECKOUT_SERVICE_ADDR
-            value: "localhost:2004"
-          - name: SHIPPING_SERVICE_ADDR
-            value: "localhost:2005"
-          - name: AD_SERVICE_ADDR
-            value: "localhost:2006"
+        - name: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "productcatalogservice:3550"
+        - name: CURRENCY_SERVICE_ADDR
+          value: "currencyservice:7000"
+        - name: CART_SERVICE_ADDR
+          value: "cartservice:7070"
+        - name: RECOMMENDATION_SERVICE_ADDR
+          value: "recommendationservice:8080"
+        - name: SHIPPING_SERVICE_ADDR
+          value: "shippingservice:50051"
+        - name: CHECKOUT_SERVICE_ADDR
+          value: "checkoutservice:5050"
+        - name: AD_SERVICE_ADDR
+          value: "adservice:9555"
