@@ -15,5 +15,5 @@ RUN useradd ${USER} \
 #COPY homework.html /app
 
 WORKDIR /app
- 
+
 EXPOSE 8000
