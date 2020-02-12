@@ -35,10 +35,10 @@ pvc-8aabab45-1b2b-4e34-9d2e-0754d19f6b2d   10Gi       RWO            Delete     
 ```
 Созданы секреты
 ```
-echo 'secret_admin' | base64
-c2VjcmV0X2FkbWluCg==
-echo 'password123456' | base64
-cGFzc3dvcmQxMjM0NTYK
+echo -n minio | base64
+bWluaW8=
+echo -n minio123 | base64
+bWluaW8xMjM=
 ```
 Добавлено в переменные valueFrom:secretKeyRef для работы с секретами
 
@@ -56,3 +56,4 @@ cGFzc3dvcmQxMjM0NTYK
  ``` 
 ## PR checklist:
  - [x] Выставлен label с номером домашнего задания
+ - [x] Задание со * 
