@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: paymentservice
+  name: paymentservice-reverse
   labels:
-    app: paymentservice
+    app: paymentservice-reverse
 spec:
   replicas: 3
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 0
+      maxSurge: 1
       maxUnavailable: 1
   selector:
     matchLabels:
-      app: paymentservice
+      app: paymentservice-reverse
   template:
     metadata:
       labels:
-        app: paymentservice
+        app: paymentservice-reverse
     spec:
       containers:
       - name: server

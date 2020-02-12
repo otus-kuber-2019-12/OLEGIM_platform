@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: paymentservice
+  name: paymentservice-bg
   labels:
-    app: paymentservice
+    app: paymentservice-bg
 spec:
   replicas: 3
   strategy:
@@ -13,11 +13,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: paymentservice
+      app: paymentservice-bg
   template:
     metadata:
       labels:
-        app: paymentservice
+        app: paymentservice-bg
     spec:
       containers:
       - name: server

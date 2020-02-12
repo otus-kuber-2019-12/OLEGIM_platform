@@ -5,10 +5,10 @@ metadata:
   labels:
     app: paymentservice
 spec:
+  replicas: 3
   selector:
     matchLabels:
       app: paymentservice
-  replicas: 3
   template:
     metadata:
       labels:
@@ -16,4 +16,4 @@ spec:
     spec:
       containers:
       - name: server
-        image: olegim89/hipster-paymentservice:v0.0.2
+        image: olegim89/hipster-paymentservice:v0.0.1
