@@ -19,12 +19,12 @@ spec:
         - name: MINIO_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: keys
+              name: mysecret
               key: MINIO_ACCESS_KEY
         - name: MINIO_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: keys
+              name: mwsecret
               key: MINIO_SECRET_KEY
         image: minio/minio:RELEASE.2019-07-10T00-34-56Z
         args:
