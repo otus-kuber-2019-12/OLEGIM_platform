@@ -24,7 +24,7 @@ spec:
         - name: MINIO_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: mwsecret
+              name: mysecret
               key: MINIO_SECRET_KEY
         image: minio/minio:RELEASE.2019-07-10T00-34-56Z
         args:
