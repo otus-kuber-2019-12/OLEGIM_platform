@@ -8,3 +8,4 @@ OLEGIM Platform Repository
 - [Шестое домашнее задание] (kubernetes-templating/README.md)
 - [Седьмое домашнее задание] (kubernetes-operators/README.md)
 - [Восьмое домашнее задание] (kubernetes-monitoring/README.md)
+- [Девятое домашнее задание] (kubernetes-logging/README.md)
