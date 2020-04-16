@@ -1,7 +1,0 @@
-git:
-  url: git@gitlab.com:olegim/microservices-demo.git
-  path: deploy
-  ciSkip: true	
-  pollInterval: 1m
-registry:
-  automationInterval: 1m
