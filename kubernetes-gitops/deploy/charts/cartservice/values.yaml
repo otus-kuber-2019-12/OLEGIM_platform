@@ -1,0 +1,8 @@
+image:
+  repository: olegim89/cartservice
+  tag: latest
+
+redis:
+  cluster:
+    enabled: false
+  usePassword: false
