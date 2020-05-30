@@ -1,0 +1,5 @@
+image:
+  repository: olegim89/frontend
+  tag: latest
+ingress:
+  host: 34.89.59.192

@@ -1,5 +1,7 @@
-#OLEGIM_platform
+# OLEGIM_platform
+
 OLEGIM Platform Repository
+
 - [Первое домашнее задание] (kubernetes-intro/README.md)
 - [Второе домашнее задание] (kubernetes-conrollers/README.md)
 - [Третье домашнее задание] (kubernetes-security/README.md)
@@ -8,3 +10,11 @@ OLEGIM Platform Repository
 - [Шестое домашнее задание] (kubernetes-templating/README.md)
 - [Седьмое домашнее задание] (kubernetes-operators/README.md)
 - [Восьмое домашнее задание] (kubernetes-monitoring/README.md)
+- [Девятое домашнее задание] (kubernetes-logging/README.md)
+- [Десятое домашнее задание] (kubernetes-vault/README.md)
+- [Одиннадцатое домашнее задание] (kubernetes-gitops/README.md)
+- [Двенадцатое домашнее задание] (kubernetes-debug/README.md)
+- [Тринадцатое домашнее задание] (kubernetes-storage/README.md)
+
+
+

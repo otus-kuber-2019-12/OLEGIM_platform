@@ -1,0 +1,13 @@
+/tf-gke
+tf-gke
+.*.swp
+.DS_Store
+*-private.*
+vendor/
+Gopkg.lock
+tf-gke/service_account.json
+tf-gke/.terraform
+tf-gke/*.tfstate
+tf-gke/*.backup
+tf-gke/.terraform.tfstate.lock.info
+tf-gke/*.tfvars
