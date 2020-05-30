@@ -1,0 +1,684 @@
+# Выполнено ДЗ № 14
+
+## В GCP создаем 4 ноды с образом Ubuntu 18.04 LTS:
+    master - 1 экземпляр (n1-standard-2)
+    worker - 3 экземпляра (n1-standard-1)
+
+Список доступных образов
+
+```bash
+https://cloud.google.com/compute/docs/images#os-compute-support
+```
+
+```bash
+gcloud compute instances create master --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-2 && gcloud compute instances create node-1 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-1 && gcloud compute instances create node-2 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-1 && gcloud compute instances create node-3 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-1
+
+NAME    ZONE            MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP   STATUS
+master  europe-west2-a  n1-standard-2               10.154.0.6   34.89.75.248  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/production-clusters-278514/zones/europe-west2-a/instances/node-1].
+NAME    ZONE            MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP  STATUS
+node-1  europe-west2-a  n1-standard-1               10.154.0.7   34.89.55.37  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/production-clusters-278514/zones/europe-west2-a/instances/node-2].
+NAME    ZONE            MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+node-2  europe-west2-a  n1-standard-1               10.154.0.8   35.246.33.189  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/production-clusters-278514/zones/europe-west2-a/instances/node-3].
+NAME    ZONE            MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP     STATUS
+node-3  europe-west2-a  n1-standard-1               10.154.0.9   34.105.205.229  RUNNING
+```
+
+Отключаем своп на все машинах
+
+```bash
+
+PROJECT_NAME=production-clusters-278514
+$ gcloud beta compute ssh --zone "europe-west2-a" "master" --project "${PROJECT_NAME}"
+$ swapoff -a
+
+$ gcloud beta compute ssh --zone "europe-west2-a" "node-1" --project "${PROJECT_NAME}"
+$ swapoff -a
+
+$ gcloud beta compute ssh --zone "europe-west2-a" "node-2" --project "${PROJECT_NAME}"
+$ swapoff -a
+
+$ gcloud beta compute ssh --zone "europe-west2-a" "node-3" --project "${PROJECT_NAME}"
+$ swapoff -a
+```
+
+Включаем маршрутизацию на всех нодах
+
+```bash
+$ sudo su -
+
+cat > /etc/sysctl.d/99-kubernetes-cri.conf <<EOF
+net.bridge.bridge-nf-call-iptables = 1
+net.ipv4.ip_forward = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+EOF
+
+sysctl --system
+```
+
+Установим docker на всех нодах
+
+```bash
+apt-get update && apt-get install -y \
+apt-transport-https ca-certificates curl software-properties-common gnupg2 && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && apt-get update && apt-get install -y containerd.io=1.2.13-1 docker-ce=5:19.03.8~3-0~ubuntu-$(lsb_release -cs) docker-ce-cli=5:19.03.8~3-0~ubuntu-$(lsb_release -cs)
+
+ cat > /etc/docker/daemon.json <<EOF
+{
+    "exec-opts": ["native.cgroupdriver=systemd"],
+    "log-driver": "json-file",
+    "log-opts": {
+        "max-size": "100m"
+     },
+    "storage-driver": "overlay2"
+}
+EOF
+
+ mkdir -p /etc/systemd/system/docker.service.d
+
+ systemctl daemon-reload && systemctl restart docker
+```
+
+Установка kubeadm, kubectl, kubelet на всех нодах
+
+```bash
+apt-get update && apt-get install -y apt-transport-https curl && curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - 
+
+cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+
+apt-get update && apt-get install -y kubelet=1.17.4-00 kubeadm=1.17.4-00 kubectl=1.17.4-00
+```
+
+Создание кластера выполняем на мастер ноде
+```bash
+$ kubeadm init --pod-network-cidr=192.168.0.0/24
+...
+Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join 10.154.0.6:6443 --token u4l3va.vsh3vzii2y8oea7t --discovery-token-ca-cert-hash sha256:0271f3ecc5b78928313e7248fbd76d0b4bd6eb075779dc9fa097638aa1d21021
+```
+
+Скопируем конфиг kubectl и проверим его
+```bash
+$ mkdir -p $HOME/.kube
+$ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+$ sudo chown $(id -u):$(id -g) $HOME/.kube/config
+$ kubectl get nodes 
+```
+
+Установим сетевой плагин calico
+```bash
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+```
+
+Подключаем worker-nodes, узнаем хеш и делаим join на worker-nodes
+```bash
+kubeadm token list
+TOKEN                     TTL         EXPIRES                USAGES                   DESCRIPTION                                                EXTRA GROUPS
+u4l3va.vsh3vzii2y8oea7t   23h         2020-05-28T16:42:28Z   authentication,signing   The default bootstrap token generated by 'kubeadm init'.   system:bootstrappers:kubeadm:default-node-token
+
+openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
+
+kubeadm join 10.154.0.6:6443 --token u4l3va.vsh3vzii2y8oea7t --discovery-token-ca-cert-hash sha256:0271f3ecc5b78928313e7248fbd76d0b4bd6eb075779dc9fa097638aa1d21021
+
+kubectl get nodes
+NAME     STATUS   ROLES    AGE   VERSION
+master   Ready    master   14m   v1.17.4
+node-1   Ready    <none>   78s   v1.17.4
+node-2   Ready    <none>   70s   v1.17.4
+node-3   Ready    <none>   66s   v1.17.4
+```
+
+Запуск нагрузки deployment.yaml
+```bash
+cat <<EOF > deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.17.2
+        ports:
+        - containerPort: 80
+EOF
+
+```
+
+Применим манифест
+
+```bash
+kubectl apply -f deployment.yaml
+```
+
+Обновление мастера
+```bash
+sudo su - 
+apt-get update && apt-get install -y kubeadm=1.18.0-00 kubelet=1.18.0-00 kubectl=1.18.0-00
+exit
+```
+
+kubectl get nodes все ноды должны быть готовы, какая версия у мастер ноды? Почему? Какая версия у Api сервера, какая у kubelet?
+
+```bash
+kubectl get nodes && kubeadm version && kubelet --version && kubectl version && kubectl describe pod kube-apiserver-master -n kube-system
+
+NAME     STATUS   ROLES    AGE   VERSION
+master   Ready    master   23h   v1.18.0
+node-1   Ready    <none>   23h   v1.17.4
+node-2   Ready    <none>   23h   v1.17.4
+node-3   Ready    <none>   23h   v1.17.4
+
+kubeadm version: &version.Info{Major:"1", Minor:"18", GitVersion:"v1.18.0", GitCommit:"9e991415386e4cf155a24b1da15becaa390438d8", GitTreeState:"clean", BuildDate:"2020-03-25T14:56:30Z", GoVersion:"go1.13.8", Compiler:"gc", Platform:"linux/amd64"}
+
+Kubernetes v1.18.0
+
+Client Version: version.Info{Major:"1", Minor:"18", GitVersion:"v1.18.0", GitCommit:"9e991415386e4cf155a24b1da15becaa390438d8", GitTreeState:"clean", BuildDate:"2020-03-25T14:58:59Z", GoVersion:"go1.13.8", Compiler:"gc", Platform:"linux/amd64"}
+
+Server Version: version.Info{Major:"1", Minor:"17", GitVersion:"v1.17.6", GitCommit:"d32e40e20d167e103faf894261614c5b45c44198", GitTreeState:"clean", BuildDate:"2020-05-20T13:08:34Z", GoVersion:"go1.13.9", Compiler:"gc", Platform:"linux/amd64"}
+
+Name:                 kube-apiserver-master
+Namespace:            kube-system
+Priority:             2000000000
+Priority Class Name:  system-cluster-critical
+Node:                 master/10.154.0.6
+Start Time:           Wed, 27 May 2020 16:42:29 +0000
+Labels:               component=kube-apiserver
+                      tier=control-plane
+Annotations:          kubernetes.io/config.hash: 084dbf7557fa289264f0c721ef4c39c7
+                      kubernetes.io/config.mirror: 084dbf7557fa289264f0c721ef4c39c7
+                      kubernetes.io/config.seen: 2020-05-28T15:56:11.629255469Z
+                      kubernetes.io/config.source: file
+Status:               Running
+IP:                   10.154.0.6
+IPs:
+  IP:           10.154.0.6
+Controlled By:  Node/master
+Containers:
+  kube-apiserver:
+    Container ID:  docker://9192630d7fbcc63e02a23bdf0e4365dc9450a93fad429e949931d0abee4982b7
+    Image:         k8s.gcr.io/kube-apiserver:v1.17.6
+    Image ID:      docker-pullable://k8s.gcr.io/kube-apiserver@sha256:1b1de58f2b4502fbaadd687b4fa3c7fc5ed376224eb3d0969d3e1ff78b05b9bb
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      kube-apiserver
+      --advertise-address=10.154.0.6
+      --allow-privileged=true
+      --authorization-mode=Node,RBAC
+      --client-ca-file=/etc/kubernetes/pki/ca.crt
+      --enable-admission-plugins=NodeRestriction
+      --enable-bootstrap-token-auth=true
+      --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+      --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
+      --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
+      --etcd-servers=https://127.0.0.1:2379
+      --insecure-port=0
+      --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+      --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+      --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+      --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
+      --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
+      --requestheader-allowed-names=front-proxy-client
+      --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+      --requestheader-extra-headers-prefix=X-Remote-Extra-
+      --requestheader-group-headers=X-Remote-Group
+      --requestheader-username-headers=X-Remote-User
+      --secure-port=6443
+      --service-account-key-file=/etc/kubernetes/pki/sa.pub
+      --service-cluster-ip-range=10.96.0.0/12
+      --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+      --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+    State:          Running
+      Started:      Thu, 28 May 2020 15:56:16 +0000
+    Ready:          True
+    Restart Count:  0
+    Requests:
+      cpu:        250m
+    Liveness:     http-get https://10.154.0.6:6443/healthz delay=15s timeout=15s period=10s #success=1 #failure=8
+    Environment:  <none>
+    Mounts:
+      /etc/ca-certificates from etc-ca-certificates (ro)
+      /etc/kubernetes/pki from k8s-certs (ro)
+      /etc/ssl/certs from ca-certs (ro)
+      /usr/local/share/ca-certificates from usr-local-share-ca-certificates (ro)
+      /usr/share/ca-certificates from usr-share-ca-certificates (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  ca-certs:
+    Type:          HostPath (bare host directory volume)
+    Path:          /etc/ssl/certs
+    HostPathType:  DirectoryOrCreate
+  etc-ca-certificates:
+    Type:          HostPath (bare host directory volume)
+    Path:          /etc/ca-certificates
+    HostPathType:  DirectoryOrCreate
+  k8s-certs:
+    Type:          HostPath (bare host directory volume)
+    Path:          /etc/kubernetes/pki
+    HostPathType:  DirectoryOrCreate
+  usr-local-share-ca-certificates:
+    Type:          HostPath (bare host directory volume)
+    Path:          /usr/local/share/ca-certificates
+    HostPathType:  DirectoryOrCreate
+  usr-share-ca-certificates:
+    Type:          HostPath (bare host directory volume)
+    Path:          /usr/share/ca-certificates
+    HostPathType:  DirectoryOrCreate
+QoS Class:         Burstable
+Node-Selectors:    <none>
+Tolerations:       :NoExecute
+Events:
+  Type    Reason   Age    From             Message
+  ----    ------   ----   ----             -------
+  Normal  Pulled   4m27s  kubelet, master  Container image "k8s.gcr.io/kube-apiserver:v1.17.6" already present on machine
+  Normal  Created  4m27s  kubelet, master  Created container kube-apiserver
+  Normal  Started  4m27s  kubelet, master  Started container kube-apiserver
+```
+
+Начнем обновление, посмотрим план обновления и применим его
+```bash
+kubeadm upgrade plan
+[upgrade/config] Making sure the configuration is correct:
+[upgrade/config] Reading configuration from the cluster...
+[upgrade/config] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
+[preflight] Running pre-flight checks.
+[upgrade] Running cluster health checks
+[upgrade] Fetching available versions to upgrade to
+[upgrade/versions] Cluster version: v1.17.6
+[upgrade/versions] kubeadm version: v1.18.0
+[upgrade/versions] Latest stable version: v1.18.3
+[upgrade/versions] Latest stable version: v1.18.3
+[upgrade/versions] Latest version in the v1.17 series: v1.17.6
+[upgrade/versions] Latest version in the v1.17 series: v1.17.6
+
+Components that must be upgraded manually after you have upgraded the control plane with 'kubeadm upgrade apply':
+COMPONENT   CURRENT       AVAILABLE
+Kubelet     3 x v1.17.4   v1.18.3
+            1 x v1.18.0   v1.18.3
+
+Upgrade to the latest stable version:
+
+COMPONENT            CURRENT   AVAILABLE
+API Server           v1.17.6   v1.18.3
+Controller Manager   v1.17.6   v1.18.3
+Scheduler            v1.17.6   v1.18.3
+Kube Proxy           v1.17.6   v1.18.3
+CoreDNS              1.6.5     1.6.7
+Etcd                 3.4.3     3.4.3-0
+```
+
+Применение обновлений (если требуется применяем флаг --force)
+
+```bash
+kubeadm upgrade apply v1.18.3
+
+[upgrade/successful] SUCCESS! Your cluster was upgraded to "v1.18.3". Enjoy!
+```
+
+Смотрим изменения
+
+```bash
+kubectl get nodes && kubeadm version && kubelet --version && kubectl version && kubectl describe pod kube-apiserver-master -n kube-system
+
+NAME     STATUS   ROLES    AGE   VERSION
+master   Ready    master   23h   v1.18.0
+node-1   Ready    <none>   23h   v1.17.4
+node-2   Ready    <none>   23h   v1.17.4
+node-3   Ready    <none>   23h   v1.17.4
+kubeadm version: &version.Info{Major:"1", Minor:"18", GitVersion:"v1.18.0", GitCommit:"9e991415386e4cf155a24b1da15becaa390438d8", GitTreeState:"clean", BuildDate:"2020-03-25T14:56:30Z", GoVersion:"go1.13.8", Compiler:"gc", Platform:"linux/amd64"}
+Kubernetes v1.18.0
+Client Version: version.Info{Major:"1", Minor:"18", GitVersion:"v1.18.0", GitCommit:"9e991415386e4cf155a24b1da15becaa390438d8", GitTreeState:"clean", BuildDate:"2020-03-25T14:58:59Z", GoVersion:"go1.13.8", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"18", GitVersion:"v1.18.3", GitCommit:"2e7996e3e2712684bc73f0dec0200d64eec7fe40", GitTreeState:"clean", BuildDate:"2020-05-20T12:43:34Z", GoVersion:"go1.13.9", Compiler:"gc", Platform:"linux/amd64"}
+Name:                 kube-apiserver-master
+Namespace:            kube-system
+Priority:             2000000000
+Priority Class Name:  system-cluster-critical
+Node:                 master/10.154.0.6
+Start Time:           Wed, 27 May 2020 16:42:29 +0000
+Labels:               component=kube-apiserver
+                      tier=control-plane
+Annotations:          kubeadm.kubernetes.io/kube-apiserver.advertise-address.endpoint: 10.154.0.6:6443
+                      kubernetes.io/config.hash: 1e4e3006bc9d13b4ae2838c5637d61d1
+                      kubernetes.io/config.mirror: 1e4e3006bc9d13b4ae2838c5637d61d1
+                      kubernetes.io/config.seen: 2020-05-28T16:07:03.089530226Z
+                      kubernetes.io/config.source: file
+Status:               Running
+IP:                   10.154.0.6
+IPs:
+  IP:           10.154.0.6
+Controlled By:  Node/master
+Containers:
+  kube-apiserver:
+    Container ID:  docker://01544a51d6e098c2c085396ee390f8bdeec93adcad45480cb4d104394761b5db
+    Image:         k8s.gcr.io/kube-apiserver:v1.18.3
+    Image ID:      docker-pullable://k8s.gcr.io/kube-apiserver@sha256:e1c8ce568634f79f76b6e8168c929511ad841ea7692271caf6fd3779c3545c2d
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      kube-apiserver
+      --advertise-address=10.154.0.6
+      --allow-privileged=true
+      --authorization-mode=Node,RBAC
+      --client-ca-file=/etc/kubernetes/pki/ca.crt
+      --enable-admission-plugins=NodeRestriction
+      --enable-bootstrap-token-auth=true
+      --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+      --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
+      --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
+      --etcd-servers=https://127.0.0.1:2379
+      --insecure-port=0
+      --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+      --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+      --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+      --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
+      --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
+      --requestheader-allowed-names=front-proxy-client
+      --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+      --requestheader-extra-headers-prefix=X-Remote-Extra-
+      --requestheader-group-headers=X-Remote-Group
+      --requestheader-username-headers=X-Remote-User
+      --secure-port=6443
+      --service-account-key-file=/etc/kubernetes/pki/sa.pub
+      --service-cluster-ip-range=10.96.0.0/12
+      --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+      --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+    State:          Running
+      Started:      Thu, 28 May 2020 16:07:06 +0000
+    Ready:          True
+    Restart Count:  0
+    Requests:
+      cpu:        250m
+    Liveness:     http-get https://10.154.0.6:6443/healthz delay=15s timeout=15s period=10s #success=1 #failure=8
+    Environment:  <none>
+    Mounts:
+      /etc/ca-certificates from etc-ca-certificates (ro)
+      /etc/kubernetes/pki from k8s-certs (ro)
+      /etc/ssl/certs from ca-certs (ro)
+      /usr/local/share/ca-certificates from usr-local-share-ca-certificates (ro)
+      /usr/share/ca-certificates from usr-share-ca-certificates (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  ca-certs:
+    Type:          HostPath (bare host directory volume)
+    Path:          /etc/ssl/certs
+    HostPathType:  DirectoryOrCreate
+  etc-ca-certificates:
+    Type:          HostPath (bare host directory volume)
+    Path:          /etc/ca-certificates
+    HostPathType:  DirectoryOrCreate
+  k8s-certs:
+    Type:          HostPath (bare host directory volume)
+    Path:          /etc/kubernetes/pki
+    HostPathType:  DirectoryOrCreate
+  usr-local-share-ca-certificates:
+    Type:          HostPath (bare host directory volume)
+    Path:          /usr/local/share/ca-certificates
+    HostPathType:  DirectoryOrCreate
+  usr-share-ca-certificates:
+    Type:          HostPath (bare host directory volume)
+    Path:          /usr/share/ca-certificates
+    HostPathType:  DirectoryOrCreate
+QoS Class:         Burstable
+Node-Selectors:    <none>
+Tolerations:       :NoExecute
+Events:
+  Type    Reason   Age    From             Message
+  ----    ------   ----   ----             -------
+  Normal  Pulled   3m     kubelet, master  Container image "k8s.gcr.io/kube-apiserver:v1.18.3" already present on machine
+  Normal  Created  3m     kubelet, master  Created container kube-apiserver
+  Normal  Started  2m59s  kubelet, master  Started container kube-apiserver
+```
+
+Вывод worker node из планирования
+```bash
+
+kubectl drain node-1 --ignore-daemonsets && kubectl get nodes -o wide
+
+node/node-1 cordoned
+WARNING: ignoring DaemonSet-managed Pods: kube-system/calico-node-k55kn, kube-system/kube-proxy-nqmn7
+evicting pod default/nginx-deployment-c8fd555cc-2h948
+evicting pod kube-system/coredns-66bff467f8-zb4cr
+pod/nginx-deployment-c8fd555cc-2h948 evicted
+pod/coredns-66bff467f8-zb4cr evicted
+node/node-1 evicted
+
+NAME     STATUS                     ROLES    AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION   CONTAINER-RUNTIME
+master   Ready                      master   23h   v1.18.0   10.154.0.6    <none>        Ubuntu 18.04.4 LTS   5.3.0-1020-gcp   docker://19.3.8
+node-1   Ready,SchedulingDisabled   <none>   23h   v1.17.4   10.154.0.7    <none>        Ubuntu 18.04.4 LTS   5.3.0-1020-gcp   docker://19.3.8
+node-2   Ready                      <none>   23h   v1.17.4   10.154.0.8    <none>        Ubuntu 18.04.4 LTS   5.3.0-1020-gcp   docker://19.3.8
+node-3   Ready                      <none>   23h   v1.17.4   10.154.0.9    <none>        Ubuntu 18.04.4 LTS   5.3.0-1020-gcp   docker://19.3.8
+```
+
+Обновление worker-нод
+
+Обновимся на выведенной ноде
+```bash
+sudo su -
+apt-get install -y kubelet=1.18.0-00 kubeadm=1.18.0-00 && systemctl restart kubelet
+
+Проверим на мастер ноде
+kubectl get nodes
+NAME     STATUS                     ROLES    AGE   VERSION
+master   Ready                      master   23h   v1.18.0
+node-1   Ready,SchedulingDisabled   <none>   23h   v1.18.0
+node-2   Ready                      <none>   23h   v1.17.4
+node-3   Ready                      <none>   23h   v1.17.4
+```
+
+Возвращаем ноду в работу
+
+```bash
+ kubectl uncordon node-1
+```
+
+Обновляем оставшиеся ноды
+```bash
+master$ kubectl drain node-2  --ignore-daemonsets && kubectl drain node-3 --ignore-daemonsets
+
+node-2# apt-get install -y kubelet=1.18.0-00 kubeadm=1.18.0-00 && systemctl restart kubelet
+
+node-3# apt-get install -y kubelet=1.18.0-00 kubeadm=1.18.0-00 && systemctl restart kubelet
+
+master$ kubectl uncordon node-2 && kubectl uncordon node-3
+
+master$ kubectl get nodes
+NAME     STATUS   ROLES    AGE   VERSION
+master   Ready    master   23h   v1.18.0
+node-1   Ready    <none>   23h   v1.18.0
+node-2   Ready    <none>   23h   v1.18.0
+node-3   Ready    <none>   23h   v1.18.0
+```
+
+Удаляем ресурсы
+```bash
+gcloud compute instances delete master && \
+gcloud compute instances delete node-1 && \
+gcloud compute instances delete node-2 && \
+gcloud compute instances delete node-3
+```
+
+## Kubespray
+
+Создаем ресурсы
+
+```bash
+gcloud compute instances create master --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-2 && \
+gcloud compute instances create node-1 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-1 && \
+gcloud compute instances create node-2 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-1 && \
+gcloud compute instances create node-3 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-1
+
+```
+
+Установка Kubespray Клонируем репозиторий, устанавливаем зависимости, копируем конфиг
+
+```bash
+git clone https://github.com/kubernetes-sigs/kubespray.git && cd kubespray && sudo pip install -r requirements.txt && cp -rfp inventory/sample inventory/mycluster
+```
+
+Сгенерируем ключ и раскидаем по серверам
+```bash
+ssh-keygen -t rsa 
+ssh-copy-id -i ~/.ssh/gcp-prod-cluster <username>@<remote_host>
+```
+
+Исправив файл inventory.ini
+
+```bash
+
+[all]
+ node1 ansible_host=34.89.55.37 etcd_member_name=etcd1
+ node2 ansible_host=35.246.33.189
+ node3 ansible_host=34.89.75.248
+ node4 ansible_host=34.105.205.229
+
+[kube-master]
+ node1
+
+[etcd]
+ node1
+
+[kube-node]
+ node2
+ node3
+ node4
+
+[calico-rr]
+
+[k8s-cluster:children]
+kube-master
+kube-node
+```
+
+Запустим playbook
+
+```bash
+ansible-playbook -i inventory/mycluster/inventory.ini --become --become-user=root --user=raja --key-file="~/.ssh/gcp-prod-cluster" cluster.yml
+
+localhost                  : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+node1                      : ok=592  changed=138  unreachable=0    failed=0    skipped=1034 rescued=0    ignored=1
+node2                      : ok=364  changed=89   unreachable=0    failed=0    skipped=559  rescued=0    ignored=1
+node3                      : ok=364  changed=89   unreachable=0    failed=0    skipped=558  rescued=0    ignored=1
+node4                      : ok=364  changed=89   unreachable=0    failed=0    skipped=558  rescued=0    ignored=1
+
+Thursday 28 May 2020  20:25:04 +0300 (0:00:00.077)       0:08:50.806 **********
+===============================================================================
+container-engine/docker : ensure docker packages are installed ------------------------------------------------------------------------------------------------ 28.77s
+kubernetes/kubeadm : Join to cluster -------------------------------------------------------------------------------------------------------------------------- 26.23s
+kubernetes/master : kubeadm | Initialize first master --------------------------------------------------------------------------------------------------------- 23.67s
+kubernetes-apps/ansible : Kubernetes Apps | Lay Down CoreDNS Template ----------------------------------------------------------------------------------------- 15.38s
+bootstrap-os : Install python --------------------------------------------------------------------------------------------------------------------------------- 14.82s
+download : download_container | Download image if required ----------------------------------------------------------------------------------------------------- 9.13s
+kubernetes-apps/ansible : Kubernetes Apps | Start Resources ---------------------------------------------------------------------------------------------------- 8.84s
+download : download_container | Download image if required ----------------------------------------------------------------------------------------------------- 8.48s
+kubernetes/preinstall : Install packages requirements ---------------------------------------------------------------------------------------------------------- 7.68s
+network_plugin/calico : Calico | Create calico manifests ------------------------------------------------------------------------------------------------------- 7.66s
+bootstrap-os : Install dbus for the hostname module ------------------------------------------------------------------------------------------------------------ 6.89s
+container-engine/docker : ensure docker-ce repository is enabled ----------------------------------------------------------------------------------------------- 6.87s
+etcd : Configure | Wait for etcd cluster to be healthy --------------------------------------------------------------------------------------------------------- 6.83s
+download : download_container | Download image if required ----------------------------------------------------------------------------------------------------- 6.44s
+download : download_container | Download image if required ----------------------------------------------------------------------------------------------------- 6.20s
+policy_controller/calico : Create calico-kube-controllers manifests -------------------------------------------------------------------------------------------- 6.14s
+etcd : wait for etcd up ---------------------------------------------------------------------------------------------------------------------------------------- 6.09s
+download : download_container | Download image if required ----------------------------------------------------------------------------------------------------- 5.51s
+download : download_container | Download image if required ----------------------------------------------------------------------------------------------------- 5.49s
+kubernetes-apps/ansible : Kubernetes Apps | Lay Down nodelocaldns Template ------------------------------------------------------------------------------------- 4.64s
+```
+
+Пересоздаем ресурсы (Для создания 3 мастер нод + 2 воркер нод)
+```bash
+gcloud compute instances delete master && \
+gcloud compute instances delete node-1 && \
+gcloud compute instances delete node-2 && \
+gcloud compute instances delete node-3
+
+gcloud compute instances create master1 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-2 && \
+gcloud compute instances create master2 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-2 && \
+gcloud compute instances create master3 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-2 && \
+gcloud compute instances create node-1 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-1 && \
+gcloud compute instances create node-2 --image-family ubuntu-minimal-1804-lts --image-project ubuntu-os-cloud --machine-type=n1-standard-1 
+```
+
+Исправив файл inventory.ini
+
+```bash
+[all]
+master1 ansible_host=34.89.55.37  etcd_member_name=etcd1
+master2 ansible_host=35.246.33.189 etcd_member_name=etcd1
+master3 ansible_host=34.89.75.248 etcd_member_name=etcd1
+node1 ansible_host=34.105.205.229
+node2 ansible_host=34.105.213.167
+
+[kube-master]
+master1
+master2
+master3
+
+[etcd]
+master1
+master2
+master3
+
+[kube-node]
+node1
+node2
+
+[calico-rr]
+
+[k8s-cluster:children]
+kube-master
+kube-node
+calico-rr
+```
+
+Применим playbook
+```bash
+ ansible-playbook -i inventory/mycluster/inventory.ini --become --become-user=root --user=raja --key-file="~/.ssh/gcp-prod-cluster" cluster.yml
+
+
+master1:~$ kubectl get nodes
+NAME      STATUS   ROLES    AGE     VERSION
+master1   Ready    master   15m20s   v1.18.2
+master2   Ready    master   14m22s   v1.18.2
+master3   Ready    master   14m22s   v1.18.2
+node1     Ready    <none>   13m55s   v1.18.2
+node2     Ready    <none>   13m55s   v1.18.2
+```
+
+Удаляем все ресурсы
+
+```bash
+gcloud compute instances delete master1 && \
+gcloud compute instances delete master2 && \
+gcloud compute instances delete master3 && \
+gcloud compute instances delete node-1 && \
+gcloud compute instances delete node-2
+```
+
+## PR checklist
+
+- [x] Выставлен label с номером домашнего задания
+- [x] Задание со *
