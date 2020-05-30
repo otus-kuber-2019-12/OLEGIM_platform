@@ -15,6 +15,3 @@ OLEGIM Platform Repository
 - [Одиннадцатое домашнее задание] (kubernetes-gitops/README.md)
 - [Двенадцатое домашнее задание] (kubernetes-debug/README.md)
 - [Тринадцатое домашнее задание] (kubernetes-storage/README.md)
-
-
-
