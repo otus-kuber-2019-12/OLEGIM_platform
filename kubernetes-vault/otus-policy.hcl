@@ -1,6 +1,6 @@
 path "otus/otus-ro/*" {
-capabilities = ["read", "list"]
-}
+      capabilities = ["read", "list"]
+  }
 path "otus/otus-rw/*" {
-capabilities = ["read", "create", "list"]
-}
+      capabilities = ["read", "create", "list", "update"]
+  }
