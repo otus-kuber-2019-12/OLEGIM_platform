@@ -678,6 +678,14 @@ kubectl apply -f nginx/nginx-deployment.yml
 deployment.apps/nginx-tls created
 ```
 
+## Пробросим порты
+
+```bash
+kubectl port-forward nginx-tls-66d8fff855-krgml 8443:8443
+
+localhost:8443 или test.example.com указав в /etc/hosts
+```
+
 ## PR checklist
 
 -[x] Выставлен label с номером домашнего задания
