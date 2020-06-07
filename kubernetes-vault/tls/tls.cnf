@@ -6,17 +6,21 @@ distinguished_name = dn
 req_extensions = v3_ext
 [ dn ]
 commonName = localhost
-stateOrProvinceName = Moscow
+stateOrProvinceName = SPB
 countryName = RU
-emailAddress = lucky@perflabs.org
-organizationName = Perflabs
-organizationalUnitName = Development
+emailAddress = info@nks.com
+organizationName = NoORG
+organizationalUnitName = IT
 [ v3_ext ]
 basicConstraints = CA:FALSE
 keyUsage = keyEncipherment,dataEncipherment
 extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
-[alt_names]
-DNS.0 = localhost
+[ alt_names ]
 DNS.1 = vault
-
+DNS.2 = localhost
+DNS.3 = vault-server-tls
+DNS.4 = vault-server-tls.default
+DNS.5 = vault-server-tls.default.svc
+DNS.6 = vault-server-tls.default.svc.cluster.local
+IP.1 = 127.0.0.1

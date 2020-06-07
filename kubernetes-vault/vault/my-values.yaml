@@ -1,0 +1,151 @@
+global:
+  enabled: true
+  imagePullSecrets: []
+  tlsDisable: true
+  openshift: false
+injector:
+  enabled: true
+  externalVaultAddr: ""
+  image:
+    repository: "hashicorp/vault-k8s"
+    tag: "0.4.0"
+    pullPolicy: IfNotPresent
+  agentImage:
+    repository: "vault"
+    tag: "1.4.2"
+  authPath: "auth/kubernetes"
+  logLevel: "info"
+  logFormat: "standard"
+  revokeOnShutdown: false
+  namespaceSelector: {}
+  certs:
+    secretName: null
+    caBundle: ""
+    certName: tls.crt
+    keyName: tls.key
+  resources: {}
+  extraEnvironmentVars: {}
+  affinity: null
+  tolerations: null
+  nodeSelector: null
+  priorityClassName: ""
+server:
+  image:
+    repository: "vault"
+    tag: "1.4.2"
+    pullPolicy: IfNotPresent
+  updateStrategyType: "OnDelete"
+  resources: {}
+  ingress:
+    enabled: false
+    labels: {}
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths: []
+    tls: []
+  route:
+    enabled: false
+    labels: {}
+    annotations: {}
+    host: chart-example.local
+  authDelegator:
+    enabled: true
+  extraInitContainers: null
+  extraContainers: null
+  shareProcessNamespace: false
+  extraArgs: ""
+  readinessProbe:
+    enabled: true
+  livenessProbe:
+    enabled: false
+    path: "/v1/sys/health?standbyok=true"
+    initialDelaySeconds: 60
+  preStopSleepSeconds: 5
+  postStart: []
+  extraEnvironmentVars: {}
+  extraSecretEnvironmentVars: []
+  extraVolumes: []
+  affinity: |
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ template "vault.name" . }}
+              app.kubernetes.io/instance: "{{ .Release.Name }}"
+              component: server
+          topologyKey: kubernetes.io/hostname
+  tolerations: null
+  nodeSelector: null
+  priorityClassName: ""
+  extraLabels: {}
+  annotations: {}
+  service:
+    enabled: true
+    port: 8200
+    targetPort: 8200
+    annotations: {}
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: null
+    accessMode: ReadWriteOnce
+  auditStorage:
+    enabled: false
+    size: 10Gi
+    storageClass: null
+    accessMode: ReadWriteOnce
+  dev:
+    enabled: false
+  standalone:
+    enabled: false
+    config: |
+      ui = true
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+      storage "file" {
+        path = "/vault/data"
+      }
+  ha:
+    enabled: true
+    replicas: 3
+    raft:
+      enabled: false
+      setNodeId: false
+      config: |
+        ui = true
+        listener "tcp" {
+          tls_disable = 1
+          address = "[::]:8200"
+          cluster_address = "[::]:8201"
+        }
+        storage "raft" {
+          path = "/vault/data"
+        }
+        service_registration "kubernetes" {}
+    config: |
+      ui = true
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+      storage "consul" {
+        path = "vault"
+        address = "HOST_IP:8500"
+      }
+      service_registration "kubernetes" {}
+    disruptionBudget:
+      enabled: true
+      maxUnavailable: null
+  serviceAccount:
+    annotations: {}
+ui:
+  enabled: false
+  serviceType: "ClusterIP"
+  serviceNodePort: null
+  externalPort: 8200
+  annotations: {}

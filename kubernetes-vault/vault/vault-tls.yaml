@@ -1,0 +1,28 @@
+tlsDisable: false
+...
+extraEnvironmentVars:
+    VAULT_ADDR: https://127.0.0.1:8200
+    VAULT_CACERT: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+ extraVolumes:
+      - type: secret
+        name: vault-certs 
+        path: null 
+
+ha:
+    enabled: true
+    replicas: 1
+config: |
+      ui = true
+
+      listener "tcp" {
+        tls_disable = 0
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+        tls_cert_file = "/vault/userconfig/vault-certs/vault.crt"
+        tls_key_file  = "/vault/userconfig/vault-certs/vault.key"
+      }
+      storage "consul" {
+        path = "vault"
+        address = "HOST_IP:8500"
+      }
